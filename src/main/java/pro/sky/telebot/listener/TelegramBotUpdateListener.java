@@ -12,7 +12,10 @@ import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import pro.sky.telebot.model.NotificationTask;
+import pro.sky.telebot.service.NotificationTaskService;
 
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -23,17 +26,22 @@ import java.util.regex.Pattern;
 @Component
 public class TelegramBotUpdateListener implements UpdatesListener {
 
-    private final Pattern pattern = Pattern.compile("(\\d{1,2}\\.\\d{1,2}\\.\\d{4} \\d{1,2}:\\d{2})\\s+" +
+    private final NotificationTaskService notificationTaskService;
+
+    private final TelegramBot telegramBot;
+
+    private final Pattern pattern = Pattern.compile(
+            "(\\d{1,2}\\.\\d{1,2}\\.\\d{4} \\d{1,2}:\\d{2})" +
             " ([А-я\\d\\s.,!?;:]+)");
 
     private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter
             .ofPattern("dd:MM:yyyy HH:mm");
 
-    Logger logger = LoggerFactory.getLogger(TelegramBotUpdateListener.class);
+    private final Logger logger = LoggerFactory.getLogger(TelegramBotUpdateListener.class);
 
-    private final TelegramBot telegramBot;
 
-    public TelegramBotUpdateListener(TelegramBot telegramBot) {
+    public TelegramBotUpdateListener(NotificationTaskService notificationTaskService, TelegramBot telegramBot) {
+        this.notificationTaskService = notificationTaskService;
         this.telegramBot = telegramBot;
     }
 
@@ -64,8 +72,7 @@ public class TelegramBotUpdateListener implements UpdatesListener {
                             [github] \\(https://github\\.com/Spolpinka\\)
                             """);
 
-                }
-                if ("/старт".equals(text)) {
+                } else if ("/старт".equals(text)) {
                     sendMessage(id, """
                             _Значит, смотри\\!_
                             здесь можно фиксировать себе напоминалки
@@ -73,16 +80,24 @@ public class TelegramBotUpdateListener implements UpdatesListener {
                             __30\\.06\\.2023 23:00 \\{название своей задачи\\}__                         
                             """);
 
-                }
-                if (text != null) {
+                } else if (text != null) {
                     Matcher matcher = pattern.matcher(text);
                     if (matcher.find()) {
                         //обработка задания
-                        LocalDateTime dateTime = parseDateTime(matcher.group(1));
+                        Timestamp timestamp = parseDateTime(matcher.group(1));
                         String innerText = matcher.group(2);
+                        NotificationTask notificationTask = new NotificationTask();
+                        notificationTask.setMessage(innerText);
+                        notificationTask.setTimestamp(timestamp);
+                        notificationTask.setChatId(id);
+                        //сохранение задания
+                        notificationTaskService.save(notificationTask);
+                        //отбивка, что задание сохранено
+                        logger.info("Saved notification task: {}", notificationTask);
+
                     } else {
                         //отбивка, что не соответствует шаблону
-                        sendMessage(id, "Не найден установленный формат сообщения!");
+                        sendMessage(id, "Не найден установленный формат сообщения\\!");
 
                     }
                 }
@@ -108,9 +123,11 @@ public class TelegramBotUpdateListener implements UpdatesListener {
     }
 
     @Nullable
-    private LocalDateTime parseDateTime(String dateTime) {
+    private Timestamp parseDateTime(String dateTime) {
         try {
-            return LocalDateTime.parse(dateTime, dateTimeFormatter);
+            Timestamp dateTime1 =  Timestamp.valueOf(LocalDateTime.parse(dateTime, dateTimeFormatter));
+            logger.info("Parsed date time: {}", dateTime1);
+            return dateTime1;
         } catch (DateTimeParseException e) {
             e.printStackTrace();
             return null;
