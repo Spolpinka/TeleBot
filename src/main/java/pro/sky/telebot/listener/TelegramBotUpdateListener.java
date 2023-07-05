@@ -126,6 +126,7 @@ public class TelegramBotUpdateListener implements UpdatesListener {
     private Timestamp parseDateTime(String dateTime) {
         try {
             Timestamp dateTime1 =  Timestamp.valueOf(LocalDateTime.parse(dateTime, dateTimeFormatter));
+            logger.info("Parsed date time first: {}", dateTime);
             logger.info("Parsed date time: {}", dateTime1);
             return dateTime1;
         } catch (DateTimeParseException e) {
