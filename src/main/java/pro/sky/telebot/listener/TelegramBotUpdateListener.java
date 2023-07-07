@@ -35,7 +35,7 @@ public class TelegramBotUpdateListener implements UpdatesListener {
             " ([А-я\\d\\s.,!?;:]+)");
 
     private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter
-            .ofPattern("dd:MM:yyyy HH:mm");
+            .ofPattern("dd.MM.yyyy HH:mm");
 
     private final Logger logger = LoggerFactory.getLogger(TelegramBotUpdateListener.class);
 
@@ -80,11 +80,19 @@ public class TelegramBotUpdateListener implements UpdatesListener {
                             __30\\.06\\.2023 23:00 \\{название своей задачи\\}__                         
                             """);
 
+                } else if (text.toLowerCase().startsWith("найти все задания")) {
+                    List<NotificationTask> listAll = notificationTaskService.findAll();
+                    StringBuilder sb = new StringBuilder();
+                    for (NotificationTask note :
+                         listAll) {
+                        sb.append(note.toString()).append("\n");
+                    }
+                    sendMessage(id, sb.toString());
                 } else if (text != null) {
                     Matcher matcher = pattern.matcher(text);
                     if (matcher.find()) {
                         //обработка задания
-                        Timestamp timestamp = parseDateTime(matcher.group(1));
+                        LocalDateTime timestamp = parseDateTime(matcher.group(1));
                         String innerText = matcher.group(2);
                         NotificationTask notificationTask = new NotificationTask();
                         notificationTask.setMessage(innerText);
@@ -94,6 +102,7 @@ public class TelegramBotUpdateListener implements UpdatesListener {
                         notificationTaskService.save(notificationTask);
                         //отбивка, что задание сохранено
                         logger.info("Saved notification task: {}", notificationTask);
+                        sendMessage(id, "Задание сохранено\\!");
 
                     } else {
                         //отбивка, что не соответствует шаблону
@@ -113,22 +122,23 @@ public class TelegramBotUpdateListener implements UpdatesListener {
     }
 
     private void sendMessage(Long id, String message) {
+        message = message.replace("(", "\\(");
         SendMessage sendMessage = new SendMessage(id, message);
         sendMessage.parseMode(ParseMode.MarkdownV2);
         SendResponse sendResponse = telegramBot.execute(sendMessage);
         if (!sendResponse.isOk()) {
-            logger.error("Error while sending message {}", sendResponse.description());
+            logger.error("Ошибка отправки / Error while sending message {}", sendResponse.description());
         }
 
     }
 
     @Nullable
-    private Timestamp parseDateTime(String dateTime) {
+    private LocalDateTime parseDateTime(String dateTime) {
         try {
-            Timestamp dateTime1 =  Timestamp.valueOf(LocalDateTime.parse(dateTime, dateTimeFormatter));
-            logger.info("Parsed date time first: {}", dateTime);
-            logger.info("Parsed date time: {}", dateTime1);
-            return dateTime1;
+            LocalDateTime ldt = LocalDateTime.parse(dateTime, dateTimeFormatter);
+            logger.info("Parsed date time first: {}", ldt);
+            //Timestamp dateTime1 =  Timestamp.valueOf(ldt);
+            return ldt;
         } catch (DateTimeParseException e) {
             e.printStackTrace();
             return null;

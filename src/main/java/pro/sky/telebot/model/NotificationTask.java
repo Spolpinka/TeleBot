@@ -16,10 +16,19 @@ public class NotificationTask {
 
     private String message;
 
-    @Column(name = "chat_id")
+    @Column(name = "chat_id", nullable = false)
     private Long chatId;
 
-    @Column(name = "date_time")
-    private Timestamp timestamp;
+    @Column(name = "date_time", nullable = false)
+    private LocalDateTime timestamp;
 
+    @Override
+    public String toString() {
+        return "NotificationTask{" +
+                "id=" + id +
+                ", message='" + message + '\'' +
+                ", chatId=" + chatId +
+                ", timestamp=" + timestamp +
+                '}';
+    }
 }
